@@ -1,0 +1,55 @@
+{
+  "rules": {
+    "connectionTests": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "sessions": {
+      "$sessionId": {
+        ".read": "auth != null",
+        ".write": "!data.exists() ? auth != null : data.child('hostUid').val() === auth.uid"
+      }
+    },
+    "sessionCodes": {
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "participants": {
+      "$sessionId": {
+        "$uid": {
+          ".read": "auth != null",
+          ".write": "auth != null && ($uid === auth.uid || root.child('sessions').child($sessionId).child('hostUid').val() === auth.uid)"
+        }
+      }
+    },
+    "groups": {
+      "$sessionId": {
+        ".read": "auth != null",
+        "$groupId": {
+          ".read": "auth != null && (root.child('sessions').child($sessionId).child('hostUid').val() === auth.uid || root.child('participants').child($sessionId).child(auth.uid).child('groupId').val() === $groupId)",
+          ".write": "auth != null && root.child('sessions').child($sessionId).child('hostUid').val() === auth.uid"
+        }
+      }
+    },
+    "scores": {
+      "$sessionId": {
+        "$presentingGroupId": {
+          "$evaluatorUid": {
+            ".read": "auth != null",
+            ".write": "auth != null && $evaluatorUid === auth.uid && !data.exists()"
+          }
+        }
+      }
+    },
+    "lobbyMessages": {
+      "$sessionId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    }
+  }
+}

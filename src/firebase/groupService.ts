@@ -1,0 +1,117 @@
+import { ref, get, update } from 'firebase/database';
+import { db } from './config';
+import { Group, Participant } from '../types';
+import { calculateOptimalTeams } from '../utils/grouping';
+import { getRandomProducts } from '../utils/products';
+import { updateSessionUIState } from './sessionService';
+
+export async function createBalancedGroups(sessionId: string): Promise<Record<string, Group>> {
+  const partsSnap = await get(ref(db, `participants/${sessionId}`));
+
+  if (!partsSnap.exists()) {
+    throw new Error('No participants found to form teams.');
+  }
+
+  const partsObj = partsSnap.val() as Record<string, Participant>;
+  const participants = Object.values(partsObj);
+
+  const { groups, error } = calculateOptimalTeams(participants);
+
+  if (error) {
+    throw new Error(error);
+  }
+
+  const updates: Record<string, any> = {};
+
+  updates[`groups/${sessionId}`] = groups;
+
+  Object.values(groups).forEach(g => {
+    Object.values(g.members).forEach(m => {
+      updates[`participants/${sessionId}/${m.uid}/groupId`] = g.id;
+    });
+  });
+
+  await update(ref(db), updates);
+  await updateSessionUIState(sessionId, 'GROUPS_READY');
+
+  console.log('[BMC GROUP] Successfully created balanced groups:', Object.keys(groups).length);
+  return groups;
+}
+
+export async function selectCaptainForGroup(
+  sessionId: string,
+  groupId: string,
+  captainUid: string,
+  captainName: string
+): Promise<void> {
+  const groupSnap = await get(ref(db, `groups/${sessionId}/${groupId}`));
+  if (!groupSnap.exists()) {
+    throw new Error('Group not found');
+  }
+
+  const group = groupSnap.val() as Group;
+  const updates: Record<string, any> = {};
+
+  if (group.captainId) {
+    updates[`participants/${sessionId}/${group.captainId}/isCaptain`] = false;
+    updates[`groups/${sessionId}/${groupId}/members/${group.captainId}/isCaptain`] = false;
+  }
+
+  updates[`groups/${sessionId}/${groupId}/captainId`] = captainUid;
+  updates[`groups/${sessionId}/${groupId}/captainName`] = captainName;
+  updates[`groups/${sessionId}/${groupId}/members/${captainUid}/isCaptain`] = true;
+  updates[`participants/${sessionId}/${captainUid}/isCaptain`] = true;
+
+  await update(ref(db), updates);
+  console.log('[BMC CAPTAIN] Selected captain:', captainName, 'for group:', groupId);
+}
+
+export async function assignProductsToGroups(sessionId: string): Promise<void> {
+  const groupsSnap = await get(ref(db, `groups/${sessionId}`));
+  if (!groupsSnap.exists()) {
+    throw new Error('No groups found for session');
+  }
+
+  const groups = groupsSnap.val() as Record<string, Group>;
+  const groupList = Object.values(groups);
+  const products = getRandomProducts(groupList.length);
+
+  const updates: Record<string, any> = {};
+
+  groupList.forEach((group, idx) => {
+    const product = products[idx];
+    updates[`groups/${sessionId}/${group.id}/productId`] = product.id;
+    updates[`groups/${sessionId}/${group.id}/product`] = product;
+  });
+
+  await update(ref(db), updates);
+  await updateSessionUIState(sessionId, 'PRODUCT_REVEAL');
+  console.log('[BMC PRODUCT] Products assigned to groups successfully');
+}
+
+export async function generateAndSavePresentationOrder(sessionId: string): Promise<string[]> {
+  const groupsSnap = await get(ref(db, `groups/${sessionId}`));
+  if (!groupsSnap.exists()) {
+    throw new Error('No groups found for session');
+  }
+
+  const groups = groupsSnap.val() as Record<string, Group>;
+  const groupIds = Object.keys(groups);
+
+  const shuffledOrder = [...groupIds].sort(() => 0.5 - Math.random());
+  const updates: Record<string, any> = {};
+
+  shuffledOrder.forEach((gId, idx) => {
+    updates[`groups/${sessionId}/${gId}/presentationOrder`] = idx + 1;
+  });
+
+  updates[`sessions/${sessionId}/presentationOrder`] = shuffledOrder;
+  updates[`sessions/${sessionId}/presentationIndex`] = 0;
+  updates[`sessions/${sessionId}/currentPresentingTeamId`] = shuffledOrder[0];
+
+  await update(ref(db), updates);
+  await updateSessionUIState(sessionId, 'PRESENTATION_ORDER');
+
+  console.log('[BMC PRESENTATION] Presentation order randomized:', shuffledOrder);
+  return shuffledOrder;
+}
