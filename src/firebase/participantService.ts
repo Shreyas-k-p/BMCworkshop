@@ -38,8 +38,16 @@ export async function joinSessionAsStudent(
     isCaptain: false
   };
 
-  await set(ref(db, `participants/${sessionId}/${uid}`), participant);
-  console.log('[BMC PARTICIPANT] Joined session:', sessionId, name, department);
+  const participantPath = `participants/${sessionId}/${uid}`;
+
+  console.log('[BMC STUDENT JOIN]');
+  console.log('  Session ID:', sessionId);
+  console.log('  UID:', uid);
+  console.log('  Name:', name);
+  console.log('[BMC STUDENT PARTICIPANT] Path:', participantPath);
+
+  await set(ref(db, participantPath), participant);
+  console.log('[BMC PARTICIPANT] Joined session successfully:', sessionId, name, department);
 
   return participant;
 }

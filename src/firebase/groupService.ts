@@ -22,14 +22,23 @@ export async function createBalancedGroups(sessionId: string): Promise<Record<st
   }
 
   const updates: Record<string, any> = {};
-
   updates[`groups/${sessionId}`] = groups;
 
+  let assignedCount = 0;
   Object.values(groups).forEach(g => {
-    Object.values(g.members).forEach(m => {
-      updates[`participants/${sessionId}/${m.uid}/groupId`] = g.id;
+    const membersList = Array.isArray(g.members) ? g.members : Object.values(g.members);
+    membersList.forEach(m => {
+      if (m && m.uid) {
+        updates[`participants/${sessionId}/${m.uid}/groupId`] = g.id;
+        assignedCount++;
+      }
     });
   });
+
+  console.log('[BMC GROUPING]');
+  console.log('  Session:', sessionId);
+  console.log('  Number of participants:', participants.length);
+  console.log('  Number assigned:', assignedCount);
 
   await update(ref(db), updates);
   await updateSessionUIState(sessionId, 'GROUPS_READY');

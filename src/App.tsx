@@ -34,7 +34,10 @@ import { Participant, Department } from './types';
 import { WifiOff } from 'lucide-react';
 
 const HOST_SESSION_KEY = 'bmc_live_host_session_id';
-const STUDENT_PARTICIPANT_KEY = 'bmc_live_student_identity';
+
+function getStudentSessionStorageKey(sessionId: string): string {
+  return `bmc_student_identity_${sessionId}`;
+}
 
 export function App() {
   const authState = useAuth();
@@ -51,10 +54,7 @@ export function App() {
   });
 
   const [studentSessionId, setStudentSessionId] = useState<string | null>(null);
-  const [studentParticipant, setStudentParticipant] = useState<Participant | null>(() => {
-    const saved = localStorage.getItem(STUDENT_PARTICIPANT_KEY);
-    return saved ? JSON.parse(saved) : null;
-  });
+  const [studentParticipant, setStudentParticipant] = useState<Participant | null>(null);
 
   const activeSessionId = isStudentRoute ? studentSessionId : hostSessionId;
 
@@ -63,25 +63,54 @@ export function App() {
   const { groups } = useGroups(activeSessionId);
   const { scores } = useScores(activeSessionId);
 
+  // 1. Resolve Session ID for student from route code and restore session-scoped participant state
   useEffect(() => {
-    if (isStudentRoute && routeCode && !studentSessionId) {
+    if (isStudentRoute && routeCode) {
       findSessionByCode(routeCode).then((s) => {
         if (s && s.hasActiveSession) {
-          setStudentSessionId(s.id);
+          const newSessionId = s.id;
+          setStudentSessionId((prev) => {
+            if (prev !== newSessionId) {
+              // Session changed! Reset student participant state for the new session
+              const scopedKey = getStudentSessionStorageKey(newSessionId);
+              const saved = localStorage.getItem(scopedKey);
+              if (saved) {
+                try {
+                  const parsed = JSON.parse(saved);
+                  setStudentParticipant(parsed);
+                } catch {
+                  setStudentParticipant(null);
+                }
+              } else {
+                setStudentParticipant(null);
+              }
+              return newSessionId;
+            }
+            return prev;
+          });
         }
       });
     }
-  }, [isStudentRoute, routeCode, studentSessionId]);
+  }, [isStudentRoute, routeCode]);
 
+  // 2. Realtime listener to sync participant record specifically under CURRENT studentSessionId
   useEffect(() => {
-    if (studentParticipant && participants.length > 0) {
-      const updated = participants.find(p => p.uid === studentParticipant.uid);
+    if (user && studentSessionId && participants.length > 0) {
+      const updated = participants.find((p) => p.uid === user.uid);
       if (updated) {
-        setStudentParticipant(updated);
-        localStorage.setItem(STUDENT_PARTICIPANT_KEY, JSON.stringify(updated));
+        setStudentParticipant((prev) => {
+          if (prev?.groupId !== updated.groupId) {
+            console.log('[BMC STUDENT GROUP]');
+            console.log('  Before:', prev?.groupId || 'null');
+            console.log('  After:', updated.groupId || 'null');
+          }
+          const scopedKey = getStudentSessionStorageKey(studentSessionId);
+          localStorage.setItem(scopedKey, JSON.stringify(updated));
+          return updated;
+        });
       }
     }
-  }, [participants]);
+  }, [user, studentSessionId, participants]);
 
   const handleHostCreateSession = async () => {
     if (!user) throw new Error('Host authentication is not ready');
@@ -119,7 +148,9 @@ export function App() {
     const participant = await joinSessionAsStudent(foundSession.id, user.uid, name, department);
     setStudentSessionId(foundSession.id);
     setStudentParticipant(participant);
-    localStorage.setItem(STUDENT_PARTICIPANT_KEY, JSON.stringify(participant));
+
+    const scopedKey = getStudentSessionStorageKey(foundSession.id);
+    localStorage.setItem(scopedKey, JSON.stringify(participant));
   };
 
   const renderReconnectBanner = () => {
@@ -153,9 +184,11 @@ export function App() {
           <p className="text-slate-400 text-sm">Thank you for participating in BMC LIVE!</p>
           <button
             onClick={() => {
+              if (studentSessionId) {
+                localStorage.removeItem(getStudentSessionStorageKey(studentSessionId));
+              }
               setStudentParticipant(null);
               setStudentSessionId(null);
-              localStorage.removeItem(STUDENT_PARTICIPANT_KEY);
               window.location.href = '/';
             }}
             className="px-6 py-3 rounded-xl bg-cyan-500 font-extrabold text-navy-950"
