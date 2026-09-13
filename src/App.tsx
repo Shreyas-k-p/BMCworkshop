@@ -176,7 +176,7 @@ export function App() {
         case 'GROUPS_READY':
         case 'CAPTAIN_SELECTION':
         case 'PRODUCT_REVEAL':
-          return <StudentTeamsView groups={groups} currentParticipant={studentParticipant} sessionId={session.id} />;
+          return <StudentTeamsView currentParticipant={studentParticipant} sessionId={session.id} />;
 
         case 'PREPARATION':
         case 'STUDY_TIME':
@@ -207,7 +207,7 @@ export function App() {
           return <StudentLeaderboard groups={groups} currentParticipant={studentParticipant} />;
 
         default:
-          return <StudentTeamsView groups={groups} currentParticipant={studentParticipant} />;
+          return <StudentTeamsView currentParticipant={studentParticipant} sessionId={session.id} />;
       }
     };
 

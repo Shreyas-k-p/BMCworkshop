@@ -1,90 +1,101 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Group, Participant } from '../../types';
+import { Participant, Group } from '../../types';
 import { GlassPanel } from '../common/GlassPanel';
 import { DepartmentBadge } from '../common/DepartmentBadge';
-import { Crown, Users, Sparkles, Package, Radar } from 'lucide-react';
+import { Crown, Users, Sparkles, CheckCircle2, Radar, Package } from 'lucide-react';
+import { useStudentGroup } from '../../hooks/useStudentGroup';
 import { soundEffects } from '../../utils/soundEffects';
 
 interface Props {
-  groups: Record<string, Group>;
   currentParticipant: Participant;
-  sessionId?: string;
+  sessionId: string;
 }
 
-function getMembersList(g?: Group | null): Participant[] {
+function getMembersList(g: Group | null): Participant[] {
   if (!g || !g.members) return [];
   if (Array.isArray(g.members)) return g.members.filter(Boolean);
   return Object.values(g.members).filter(Boolean);
 }
 
 export const StudentTeamsView: React.FC<Props> = ({
-  groups,
   currentParticipant,
-  sessionId = 'default_session'
+  sessionId
 }) => {
-  // Find ONLY the student's assigned group
   const myGroupId = currentParticipant.groupId;
-  const myGroup = myGroupId
-    ? groups[myGroupId] || Object.values(groups).find(g => g.id === myGroupId)
-    : Object.values(groups).find(g => {
-        const mems = getMembersList(g);
-        return mems.some(m => m && m.uid === currentParticipant.uid);
-      });
+  const { group: myGroup, loading: groupLoading } = useStudentGroup(sessionId, myGroupId);
+
+  const members = getMembersList(myGroup);
+  const hasMembers = members.length > 0;
+  const isDataReady = Boolean(myGroupId && myGroup && hasMembers && !groupLoading);
 
   const revealedStorageKey = `bmc_live_team_revealed_${sessionId}_${currentParticipant.uid}`;
 
-  // Check if team reveal suspense animation has already been shown
-  const [hasRevealed, setHasRevealed] = useState<boolean>(() => {
+  // Check if animation has already been shown
+  const [hasRevealed] = useState<boolean>(() => {
     return Boolean(localStorage.getItem(revealedStorageKey));
   });
 
-  // Animation Step: 0 = WAITING/SEARCHING, 1 = TEAM ASSIGNMENT, 2 = YOUR TEAM IS..., 3 = TEAM NUMBER REVEAL, 4 = FINAL TEAM VIEW
-  const [animationStep, setAnimationStep] = useState<number>(() => {
-    return localStorage.getItem(revealedStorageKey) ? 4 : 1;
-  });
+  // Phase:
+  // 0 = WAITING FOR TEAMS
+  // 1 = TEAM FORMATION COMPLETE
+  // 2 = ASSIGNING YOUR TEAM...
+  // 3 = YOUR TEAM IS...
+  // 4 = TEAM X (LARGE NUMBER)
+  // 5 = FINAL YOUR TEAM VIEW (MEMBERS STAGGERED REVEAL)
+  const [phase, setPhase] = useState<number>(() => (isAlreadyRevealed(revealedStorageKey) ? 5 : 0));
+  const animationTriggeredRef = useRef<boolean>(isAlreadyRevealed(revealedStorageKey));
+
+  function isAlreadyRevealed(key: string): boolean {
+    return Boolean(localStorage.getItem(key));
+  }
 
   useEffect(() => {
-    if (!myGroup) return;
+    if (!isDataReady) return;
 
-    if (hasRevealed) {
-      setAnimationStep(4);
+    if (hasRevealed || animationTriggeredRef.current) {
+      setPhase(5);
       return;
     }
 
-    // Trigger exciting 4-step reveal animation sequence
-    setAnimationStep(1); // Step 1: TEAM ASSIGNMENT (Finding your team...)
+    animationTriggeredRef.current = true;
+    setPhase(1); // Start Phase 1: TEAM FORMATION COMPLETE
     soundEffects.playCuriousShuffle();
 
     const t1 = setTimeout(() => {
-      setAnimationStep(2); // Step 2: YOUR TEAM IS...
+      setPhase(2); // Phase 2: ASSIGNING YOUR TEAM...
       soundEffects.playCuriousShuffle();
-    }, 1400);
+    }, 1000);
 
     const t2 = setTimeout(() => {
-      setAnimationStep(3); // Step 3: TEAM NUMBER REVEAL
-      soundEffects.playTeamRevealSound();
-    }, 2800);
+      setPhase(3); // Phase 3: YOUR TEAM IS...
+      soundEffects.playCuriousShuffle();
+    }, 2200);
 
     const t3 = setTimeout(() => {
-      setAnimationStep(4); // Step 4: YOUR TEAM & MEMBER CARDS
-      setHasRevealed(true);
+      setPhase(4); // Phase 4: TEAM NUMBER REVEAL
+      soundEffects.playTeamRevealSound();
+    }, 3400);
+
+    const t4 = setTimeout(() => {
+      setPhase(5); // Phase 5: FINAL TEAM MEMBERS VIEW
       localStorage.setItem(revealedStorageKey, 'true');
-    }, 4200);
+    }, 4800);
 
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
       clearTimeout(t3);
+      clearTimeout(t4);
     };
-  }, [myGroup?.id, hasRevealed, revealedStorageKey]);
+  }, [isDataReady, revealedStorageKey, hasRevealed]);
 
-  // Case 1: Waiting for host to create/assign teams
-  if (!myGroup) {
+  // Render Phase 0 or Data Not Ready: WAITING FOR TEAMS...
+  if (!isDataReady || !myGroup || phase === 0) {
     return (
       <div className="min-h-screen bg-navy-950 p-6 flex flex-col items-center justify-center text-center">
         <GlassPanel glow className="p-8 space-y-6 max-w-md w-full">
-          <div className="w-16 h-16 rounded-2xl bg-cyan-500/20 border-2 border-cyan-400 text-cyan-400 flex items-center justify-center mx-auto animate-pulse">
+          <div className="w-16 h-16 rounded-2xl bg-cyan-500/20 border-2 border-cyan-400 text-cyan-400 flex items-center justify-center mx-auto shadow-lg shadow-cyan-500/20">
             <Radar className="w-8 h-8 animate-spin" style={{ animationDuration: '4s' }} />
           </div>
           <div className="space-y-2">
@@ -93,7 +104,7 @@ export const StudentTeamsView: React.FC<Props> = ({
             </span>
             <h2 className="text-3xl font-black text-white">WAITING FOR TEAMS...</h2>
             <p className="text-slate-400 text-xs">
-              The host is generating balanced squads. Your assigned team will be revealed shortly!
+              The host is forming balanced squads. Your assigned team will appear here automatically!
             </p>
           </div>
         </GlassPanel>
@@ -101,24 +112,49 @@ export const StudentTeamsView: React.FC<Props> = ({
     );
   }
 
-  const members = getMembersList(myGroup);
   const product = myGroup.product;
 
   return (
     <div className="min-h-screen bg-navy-950 p-4 pb-16 max-w-md mx-auto flex flex-col justify-center">
       <AnimatePresence mode="wait">
-        {/* STEP 1: TEAM ASSIGNMENT (Finding your team...) */}
-        {animationStep === 1 && (
+        {/* PHASE 1: TEAM FORMATION COMPLETE */}
+        {phase === 1 && (
           <motion.div
-            key="step-1"
+            key="phase-1"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 1.05 }}
             transition={{ duration: 0.3 }}
-            className="py-12 text-center space-y-6"
+            className="py-12 text-center"
           >
-            <GlassPanel glow className="p-8 space-y-6">
-              <div className="w-20 h-20 rounded-full bg-cyan-500/20 border-2 border-cyan-400 flex items-center justify-center mx-auto text-cyan-400 shadow-xl shadow-cyan-500/30">
+            <GlassPanel glow className="p-8 space-y-5">
+              <div className="w-16 h-16 rounded-full bg-emerald-500/20 border-2 border-emerald-400 text-emerald-400 flex items-center justify-center mx-auto shadow-xl shadow-emerald-500/20">
+                <CheckCircle2 className="w-9 h-9" />
+              </div>
+              <div className="space-y-1">
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">
+                  REALTIME SYNC COMPLETE
+                </span>
+                <h2 className="text-2xl md:text-3xl font-black text-white uppercase tracking-tight">
+                  TEAM FORMATION COMPLETE
+                </h2>
+              </div>
+            </GlassPanel>
+          </motion.div>
+        )}
+
+        {/* PHASE 2: ASSIGNING YOUR TEAM... */}
+        {phase === 2 && (
+          <motion.div
+            key="phase-2"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.05 }}
+            transition={{ duration: 0.3 }}
+            className="py-12 text-center"
+          >
+            <GlassPanel glow className="p-8 space-y-6 border-cyan-400/60 shadow-cyan-500/30">
+              <div className="w-20 h-20 rounded-2xl bg-cyan-500/20 border-2 border-cyan-400 text-cyan-400 flex items-center justify-center mx-auto shadow-xl shadow-cyan-500/30">
                 <Radar className="w-10 h-10 animate-spin" />
               </div>
               <div className="space-y-2">
@@ -126,29 +162,26 @@ export const StudentTeamsView: React.FC<Props> = ({
                   BALANCING DEPARTMENTS
                 </span>
                 <h2 className="text-3xl font-black text-white uppercase tracking-tight">
-                  TEAM ASSIGNMENT
+                  ASSIGNING YOUR TEAM...
                 </h2>
-                <p className="text-slate-400 text-xs">
-                  Finding your optimal squad placement...
-                </p>
               </div>
             </GlassPanel>
           </motion.div>
         )}
 
-        {/* STEP 2: YOUR TEAM IS... */}
-        {animationStep === 2 && (
+        {/* PHASE 3: YOUR TEAM IS... */}
+        {phase === 3 && (
           <motion.div
-            key="step-2"
+            key="phase-3"
             initial={{ opacity: 0, scale: 0.8, filter: 'blur(10px)' }}
             animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
             exit={{ opacity: 0, scale: 1.1, filter: 'blur(5px)' }}
             transition={{ duration: 0.4 }}
-            className="py-16 text-center space-y-6"
+            className="py-16 text-center"
           >
-            <GlassPanel glow className="p-10 space-y-4 border-cyan-400/80 shadow-2xl shadow-cyan-500/30">
+            <GlassPanel glow className="p-10 space-y-4 border-cyan-400/80 shadow-2xl shadow-cyan-500/40">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-300 font-extrabold text-xs uppercase tracking-widest">
-                <Sparkles className="w-4 h-4 animate-bounce" /> SUSPENSE REVEAL
+                <Sparkles className="w-4 h-4 animate-bounce" /> REVEALING SQUAD
               </div>
               <h2 className="text-4xl md:text-5xl font-black text-white tracking-widest uppercase">
                 YOUR TEAM IS...
@@ -157,17 +190,17 @@ export const StudentTeamsView: React.FC<Props> = ({
           </motion.div>
         )}
 
-        {/* STEP 3: TEAM NUMBER REVEAL */}
-        {animationStep === 3 && (
+        {/* PHASE 4: TEAM NUMBER REVEAL (LARGE TEAM NUMBER) */}
+        {phase === 4 && (
           <motion.div
-            key="step-3"
+            key="phase-4"
             initial={{ opacity: 0, scale: 0.5 }}
             animate={{ opacity: 1, scale: [0.7, 1.2, 1] }}
             exit={{ opacity: 0, scale: 1.05 }}
             transition={{ duration: 0.5, ease: 'backOut' }}
-            className="py-16 text-center space-y-6"
+            className="py-16 text-center"
           >
-            <GlassPanel glow className="p-10 space-y-4 border-2 border-cyan-400 shadow-2xl shadow-cyan-500/50 bg-gradient-to-b from-navy-900 to-navy-950">
+            <GlassPanel glow className="p-10 space-y-4 border-2 border-cyan-400 shadow-2xl shadow-cyan-500/60 bg-gradient-to-b from-navy-900 to-navy-950">
               <span className="text-xs font-black uppercase tracking-widest text-cyan-400">
                 SQUAD ASSIGNED
               </span>
@@ -181,10 +214,10 @@ export const StudentTeamsView: React.FC<Props> = ({
           </motion.div>
         )}
 
-        {/* STEP 4: FINAL REVEAL — YOUR TEAM ONLY & MEMBER CARDS */}
-        {animationStep === 4 && (
+        {/* PHASE 5: FINAL VIEW — YOUR TEAM & STAGGERED MEMBER REVEAL */}
+        {phase === 5 && (
           <motion.div
-            key="step-4-final"
+            key="phase-5-final"
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
@@ -258,7 +291,7 @@ export const StudentTeamsView: React.FC<Props> = ({
                       key={m.uid}
                       initial={{ opacity: 0, x: -15 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.3, delay: idx * 0.1 }}
+                      transition={{ duration: 0.3, delay: hasRevealed ? 0 : idx * 0.12 }}
                       className={`p-3.5 rounded-xl border flex items-center justify-between text-xs font-bold transition-all ${
                         isMe
                           ? 'bg-cyan-500/20 border-cyan-400/80 text-cyan-200 shadow-lg shadow-cyan-500/20'
