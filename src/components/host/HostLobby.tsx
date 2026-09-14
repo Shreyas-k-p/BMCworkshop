@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import { Session, Participant } from '../../types';
@@ -6,6 +6,7 @@ import { GlassPanel } from '../common/GlassPanel';
 import { DepartmentBadge } from '../common/DepartmentBadge';
 import { Users, UserPlus, ArrowRight, QrCode, AlertCircle } from 'lucide-react';
 import { getJoinUrl } from '../../utils/urlHelper';
+import { soundEffects } from '../../utils/soundEffects';
 
 interface Props {
   session: Session;
@@ -23,6 +24,17 @@ export const HostLobby: React.FC<Props> = ({
   const [loadingDemo, setLoadingDemo] = useState(false);
   const [loadingTeams, setLoadingTeams] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Track participant count to detect genuinely new joins (not page refresh)
+  // Initialized to current count so refresh doesn't trigger sounds
+  const prevCountRef = useRef(participants.length);
+  useEffect(() => {
+    const current = participants.length;
+    if (current > prevCountRef.current) {
+      soundEffects.playJoin();
+    }
+    prevCountRef.current = current;
+  }, [participants.length]);
 
   const joinUrl = getJoinUrl(session.code);
   const canCreateTeams = participants.length >= 5;
@@ -43,8 +55,10 @@ export const HostLobby: React.FC<Props> = ({
     if (!canCreateTeams) return;
     setLoadingTeams(true);
     setError(null);
+    soundEffects.playClick();
     try {
       await onCreateTeams();
+      soundEffects.playTeamReveal();
     } catch (err: any) {
       setError(err.message || 'Failed to create teams.');
     } finally {

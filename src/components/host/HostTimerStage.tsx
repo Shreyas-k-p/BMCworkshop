@@ -92,6 +92,7 @@ export const HostTimerStage: React.FC<Props> = ({
           onReset={onResetTimer}
           showControls={true}
           size="projector"
+          stageKey={isPrep ? 'preparation' : 'study'}
         />
 
         <div className="pt-6 border-t border-slate-800/80 flex items-center justify-center gap-6">

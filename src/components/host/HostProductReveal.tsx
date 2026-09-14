@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Group } from '../../types';
 import { GlassPanel } from '../common/GlassPanel';
 import { ArrowRight, Crown, Package, CheckCircle2 } from 'lucide-react';
+import { soundEffects } from '../../utils/soundEffects';
 
 interface Props {
   groups: Record<string, Group>;
@@ -14,6 +15,15 @@ export const HostProductReveal: React.FC<Props> = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const groupList = Object.values(groups).sort((a, b) => a.groupNumber - b.groupNumber);
+
+  // Play dramatic reveal sound once when this stage mounts
+  const revealPlayed = useRef(false);
+  useEffect(() => {
+    if (!revealPlayed.current) {
+      revealPlayed.current = true;
+      soundEffects.playProductReveal();
+    }
+  }, []);
 
   const handleStart = async () => {
     setLoading(true);

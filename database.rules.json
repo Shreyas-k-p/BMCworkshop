@@ -40,7 +40,7 @@
         "$presentingGroupId": {
           "$evaluatorUid": {
             ".read": "auth != null",
-            ".write": "auth != null && $evaluatorUid === auth.uid && !data.exists()"
+            ".write": "auth != null && ((!data.exists() && $evaluatorUid === auth.uid && root.child('participants').child($sessionId).child(auth.uid).child('isCaptain').val() === true && root.child('participants').child($sessionId).child(auth.uid).child('groupId').val() !== $presentingGroupId && newData.child('score').isNumber() && newData.child('score').val() >= 0 && newData.child('score').val() <= 10) || root.child('sessions').child($sessionId).child('hostUid').val() === auth.uid)"
           }
         }
       }

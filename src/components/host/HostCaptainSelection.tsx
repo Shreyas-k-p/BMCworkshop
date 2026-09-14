@@ -4,6 +4,7 @@ import { Group } from '../../types';
 import { GlassPanel } from '../common/GlassPanel';
 import { DepartmentBadge } from '../common/DepartmentBadge';
 import { Crown, CheckCircle2, ArrowRight, ShieldCheck } from 'lucide-react';
+import { soundEffects } from '../../utils/soundEffects';
 
 interface Props {
   groups: Record<string, Group>;
@@ -28,6 +29,7 @@ export const HostCaptainSelection: React.FC<Props> = ({
     setError(null);
     try {
       await onSelectCaptain(groupId, captainUid, captainName);
+      soundEffects.playCaptainSelected();
     } catch (err: any) {
       setError(err.message || 'Failed to assign captain.');
     }

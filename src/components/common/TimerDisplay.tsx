@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TimerState } from '../../types';
 import { useTimer } from '../../hooks/useTimer';
+import { useTimerSounds } from '../../hooks/useTimerSounds';
 import { Play, Pause, RotateCcw } from 'lucide-react';
 
 interface Props {
@@ -12,6 +13,10 @@ interface Props {
   onReset?: () => void;
   showControls?: boolean;
   size?: 'normal' | 'projector';
+  /** Sound stage key: 'preparation' | 'study' | 'presentation'. Omit to disable sounds. */
+  stageKey?: string;
+  /** Current presentation index (for presentation timer deduplication). */
+  presentationIndex?: number;
 }
 
 export const TimerDisplay: React.FC<Props> = ({
@@ -21,9 +26,14 @@ export const TimerDisplay: React.FC<Props> = ({
   onPause,
   onReset,
   showControls = false,
-  size = 'projector'
+  size = 'projector',
+  stageKey,
+  presentationIndex = 0,
 }) => {
   const { remaining, formatted, isRunning, isPaused, isTimeUp } = useTimer(timerState);
+
+  // Fire timer milestone sounds (deduplication handled inside the hook)
+  useTimerSounds(stageKey ? timerState : null, stageKey ?? '', presentationIndex);
 
   const isLowTime = remaining > 0 && remaining <= 60;
   const isCriticalTime = remaining > 0 && remaining <= 10;

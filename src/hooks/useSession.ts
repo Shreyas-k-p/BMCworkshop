@@ -11,6 +11,7 @@ export function useSession(sessionId: string | null) {
   const lastVersionRef = useRef<number>(0);
 
   useEffect(() => {
+    lastVersionRef.current = 0;
     if (!sessionId) {
       setSession(null);
       setLoading(false);

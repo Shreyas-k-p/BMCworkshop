@@ -54,12 +54,14 @@ export function App() {
   // studentSessionId is resolved from the URL route code via findSessionByCode.
   // It is NEVER restored from localStorage — the URL is always the source of truth.
   const [studentSessionId, setStudentSessionId] = useState<string | null>(null);
+  const [sessionResolving, setSessionResolving] = useState<boolean>(Boolean(isStudentRoute));
+  const [sessionNotFound, setSessionNotFound] = useState<boolean>(false);
 
   const uid = authState.uid;
 
   const activeSessionId = isStudentRoute ? studentSessionId : hostSessionId;
 
-  const { session } = useSession(activeSessionId);
+  const { session, loading: sessionLoading } = useSession(activeSessionId);
   const { participants } = useParticipants(activeSessionId);
   const { groups } = useGroups(activeSessionId);
   const { scores } = useScores(activeSessionId);
@@ -68,7 +70,7 @@ export function App() {
   // This is session-scoped by design. When studentSessionId changes (new session),
   // the hook unsubscribes from the old session listener and subscribes to the new one.
   // State is reset to null between sessions — no stale groupId can leak across sessions.
-  const { participant: studentParticipant } = useStudentParticipant(
+  const { participant: studentParticipant, loading: studentParticipantLoading } = useStudentParticipant(
     isStudentRoute ? studentSessionId : null,
     uid
   );
@@ -77,21 +79,27 @@ export function App() {
   // The URL (routeCode) is ALWAYS the source of truth — not localStorage.
   useEffect(() => {
     if (isStudentRoute && routeCode) {
-      findSessionByCode(routeCode).then((s) => {
-        if (s && s.hasActiveSession) {
-          const newSessionId = s.id;
-          setStudentSessionId((prev) => {
-            if (prev !== newSessionId) {
-              console.log('[BMC SESSION] Resolved session from URL code:', routeCode, '→', newSessionId);
-              return newSessionId;
-            }
-            return prev;
-          });
-        } else if (s && !s.hasActiveSession) {
-          console.log('[BMC SESSION] Session found but not active (ended):', s.id);
-          setStudentSessionId(s.id); // Still set it so the "session ended" UI shows
-        }
-      });
+      setSessionResolving(true);
+      setSessionNotFound(false);
+      findSessionByCode(routeCode)
+        .then((s) => {
+          if (s) {
+            setStudentSessionId(s.id);
+            setSessionNotFound(false);
+            console.log('[BMC SESSION] Resolved session from URL code:', routeCode, '→', s.id, 'Active:', s.hasActiveSession);
+          } else {
+            setSessionNotFound(true);
+          }
+        })
+        .catch((err) => {
+          console.error('[BMC SESSION] Error finding session:', err);
+          setSessionNotFound(true);
+        })
+        .finally(() => {
+          setSessionResolving(false);
+        });
+    } else {
+      setSessionResolving(false);
     }
   }, [isStudentRoute, routeCode]);
 
@@ -149,7 +157,75 @@ export function App() {
   // STUDENT VIEW ROUTING
   // ==========================================
   if (isStudentRoute) {
-    if (!studentParticipant || !studentSessionId || !session) {
+    // 1. Initial loading: while resolving code from URL or loading session record
+    if (sessionResolving || (studentSessionId && sessionLoading && !session)) {
+      return (
+        <div className="min-h-screen bg-navy-950 flex flex-col items-center justify-center p-6 text-center">
+          {renderReconnectBanner()}
+          <div className="w-8 h-8 border-3 border-cyan-500 border-t-transparent rounded-full animate-spin mb-4" />
+          <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">
+            Connecting to BMC LIVE...
+          </p>
+        </div>
+      );
+    }
+
+    // 2. Session code invalid or session record not found
+    if (sessionNotFound || !session) {
+      return (
+        <div className="min-h-screen bg-navy-950 flex flex-col items-center justify-center p-6 text-center space-y-4">
+          {renderReconnectBanner()}
+          <h2 className="text-3xl font-black text-white">SESSION NOT FOUND</h2>
+          <p className="text-slate-400 text-sm">
+            Please check the session code or scan the competition QR code again.
+          </p>
+        </div>
+      );
+    }
+
+    // 3. DEDICATED ENDED-SESSION SCREEN (REALTIME & REFRESH SAFE)
+    // When the host ends the session, hasActiveSession becomes false and uiState becomes 'COMPLETED'.
+    // Every connected student detects this via realtime listener and transitions immediately.
+    // On refresh, this screen is immediately shown. Students NEVER see Host Home or Join form.
+    const isSessionEnded = !session.hasActiveSession || session.uiState === 'COMPLETED';
+
+    if (isSessionEnded) {
+      return (
+        <div className="min-h-screen bg-navy-950 flex flex-col items-center justify-center p-6 text-center">
+          {renderReconnectBanner()}
+          <div className="max-w-md w-full p-8 rounded-2xl bg-navy-900/60 border border-slate-800/80 backdrop-blur-xl shadow-2xl space-y-4">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 font-extrabold text-xs uppercase tracking-widest">
+              BMC LIVE
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+              SESSION ENDED
+            </h1>
+            <p className="text-slate-300 text-base font-medium">
+              This competition session has ended.
+            </p>
+            <p className="text-slate-400 text-sm">
+              Thank you for participating!
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // 4. Session is ACTIVE: check participant record loading
+    if (studentParticipantLoading) {
+      return (
+        <div className="min-h-screen bg-navy-950 flex flex-col items-center justify-center p-6 text-center">
+          {renderReconnectBanner()}
+          <div className="w-8 h-8 border-3 border-cyan-500 border-t-transparent rounded-full animate-spin mb-4" />
+          <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">
+            Loading student profile...
+          </p>
+        </div>
+      );
+    }
+
+    // 5. Session is ACTIVE but student hasn't joined: render join form
+    if (!studentParticipant) {
       return (
         <div className="min-h-screen bg-navy-950 flex flex-col">
           {renderReconnectBanner()}
@@ -158,25 +234,7 @@ export function App() {
       );
     }
 
-    if (!session.hasActiveSession || session.uiState === 'COMPLETED') {
-      return (
-        <div className="min-h-screen bg-navy-950 flex flex-col items-center justify-center p-6 text-center space-y-4">
-          {renderReconnectBanner()}
-          <h2 className="text-4xl font-black text-white">SESSION HAS ENDED</h2>
-          <p className="text-slate-400 text-sm">Thank you for participating in BMC LIVE!</p>
-          <button
-            onClick={() => {
-              setStudentSessionId(null);
-              window.location.href = '/';
-            }}
-            className="px-6 py-3 rounded-xl bg-cyan-500 font-extrabold text-navy-950"
-          >
-            BACK TO HOME
-          </button>
-        </div>
-      );
-    }
-
+    // 6. Active session with joined participant: render stages
     const renderStudentContent = () => {
       switch (session.uiState) {
         case 'NO_SESSION':
@@ -317,6 +375,14 @@ export function App() {
             onStartPresentationTimer={() => startTimer(session.id, 'presentation')}
             onPausePresentationTimer={() => pauseTimer(session.id, 'presentation')}
             onResetPresentationTimer={() => resetTimer(session.id, 'presentation', 180)}
+            onStartPitching={async () => {
+              const order = session.presentationOrder || Object.keys(groups);
+              await updateSessionUIState(session.id, 'PRESENTATION', session.stateVersion, {
+                presentationIndex: 0,
+                currentPresentingTeamId: order[0] || null
+              });
+              await resetTimer(session.id, 'presentation', 180);
+            }}
             onNextTeam={async () => {
               const order = session.presentationOrder || Object.keys(groups);
               const nextIdx = (session.presentationIndex || 0) + 1;

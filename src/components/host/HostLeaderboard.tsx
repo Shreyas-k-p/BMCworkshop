@@ -1,10 +1,11 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { Group } from '../../types';
 import { GlassPanel } from '../common/GlassPanel';
 import { DepartmentBadge } from '../common/DepartmentBadge';
 import { Crown, RotateCcw, LogOut, Sparkles } from 'lucide-react';
+import { soundEffects } from '../../utils/soundEffects';
 
 interface Props {
   groups: Record<string, Group>;
@@ -25,6 +26,7 @@ export const HostLeaderboard: React.FC<Props> = ({
   const top2 = sortedGroups[1];
   const top3 = sortedGroups[2];
 
+  // Confetti animation
   useEffect(() => {
     const end = Date.now() + 3 * 1000;
     const colors = ['#06b6d4', '#3b82f6', '#fbbf24', '#f43f5e'];
@@ -49,6 +51,15 @@ export const HostLeaderboard: React.FC<Props> = ({
         requestAnimationFrame(frame);
       }
     })();
+  }, []);
+
+  // Winner sound — plays once on mount, synchronized with confetti
+  const winnerSoundPlayed = useRef(false);
+  useEffect(() => {
+    if (!winnerSoundPlayed.current) {
+      winnerSoundPlayed.current = true;
+      soundEffects.playWinner();
+    }
   }, []);
 
   return (

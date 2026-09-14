@@ -159,10 +159,13 @@ export async function updateSessionUIState(
 
 export async function endSession(sessionId: string): Promise<void> {
   const sessionRef = ref(db, `sessions/${sessionId}`);
+  const snap = await get(sessionRef);
+  const currentVersion = snap.exists() ? (snap.val().stateVersion || 0) : 0;
   await update(sessionRef, {
     hasActiveSession: false,
     uiState: 'COMPLETED',
+    stateVersion: currentVersion + 1,
     updatedAt: Date.now()
   });
-  console.log('[BMC SESSION] Session ended:', sessionId);
+  console.log('[BMC SESSION] Session ended:', sessionId, 'Version:', currentVersion + 1);
 }

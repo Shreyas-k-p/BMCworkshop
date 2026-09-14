@@ -1,6 +1,6 @@
 import { ref, get, set, update } from 'firebase/database';
-import { db } from './config';
-import { ScoreSubmission, Group } from '../types';
+import { db, auth } from './config';
+import { ScoreSubmission, Group, Participant, Session } from '../types';
 import { calculateAverageScore } from '../utils/scoring';
 import { updateSessionUIState } from './sessionService';
 
@@ -11,14 +11,56 @@ export async function submitScore(
   evaluatorTeamId: string,
   score: number
 ): Promise<void> {
-  if (score < 0 || score > 10) {
-    throw new Error('Score must be between 0 and 10.');
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('Authentication required to submit score.');
+  }
+
+  if (currentUser.uid !== evaluatorUid) {
+    throw new Error('Unauthorized: Evaluator UID does not match authenticated user.');
+  }
+
+  if (typeof score !== 'number' || isNaN(score) || score < 0 || score > 10) {
+    throw new Error('Score must be a valid number between 0 and 10.');
   }
 
   if (evaluatorTeamId === presentingTeamId) {
     throw new Error('Captains cannot score their own team.');
   }
 
+  // 1. Verify active presentation stage and matching presenting team
+  const sessionSnap = await get(ref(db, `sessions/${sessionId}`));
+  if (!sessionSnap.exists()) {
+    throw new Error('Session does not exist.');
+  }
+  const sessionData = sessionSnap.val() as Session;
+  if (!sessionData.hasActiveSession) {
+    throw new Error('Session is no longer active.');
+  }
+  if (sessionData.uiState !== 'PRESENTATION' && sessionData.uiState !== 'SCORING') {
+    throw new Error('Score submission is only permitted during that team\'s active presentation.');
+  }
+
+  const order = sessionData.presentationOrder || [];
+  const currentActiveTeamId = order[sessionData.presentationIndex || 0] || sessionData.currentPresentingTeamId;
+  if (currentActiveTeamId !== presentingTeamId) {
+    throw new Error('Can only score the team currently presenting.');
+  }
+
+  // 2. Verify evaluator is a verified captain in this session and not scoring own team
+  const participantSnap = await get(ref(db, `participants/${sessionId}/${evaluatorUid}`));
+  if (!participantSnap.exists()) {
+    throw new Error('Participant record not found for this session.');
+  }
+  const participant = participantSnap.val() as Participant;
+  if (!participant.isCaptain) {
+    throw new Error('Only designated team captains are permitted to submit peer scores.');
+  }
+  if (participant.groupId === presentingTeamId) {
+    throw new Error('Captains cannot score their own team.');
+  }
+
+  // 3. Verify evaluator hasn't already submitted a score for this presenting team
   const scoreRef = ref(db, `scores/${sessionId}/${presentingTeamId}/${evaluatorUid}`);
   const snap = await get(scoreRef);
   if (snap.exists()) {
@@ -27,14 +69,14 @@ export async function submitScore(
 
   const submission: ScoreSubmission = {
     evaluatorUid,
-    evaluatorTeamId,
+    evaluatorTeamId: participant.groupId || evaluatorTeamId,
     presentingTeamId,
     score: Math.round(score * 10) / 10,
     submittedAt: Date.now()
   };
 
   await set(scoreRef, submission);
-  console.log('[BMC SCORE] Submitted score:', score, 'by', evaluatorUid, 'for team', presentingTeamId);
+  console.log('[BMC SCORE] Submitted score:', submission.score, 'by captain', evaluatorUid, 'for team', presentingTeamId);
 }
 
 export async function simulateDemoCaptainScores(sessionId: string, presentingTeamId: string): Promise<void> {

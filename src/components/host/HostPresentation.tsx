@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Session, Group, ScoreSubmission } from '../../types';
 import { GlassPanel } from '../common/GlassPanel';
 import { TimerDisplay } from '../common/TimerDisplay';
 import { Crown, CheckCircle2, Clock, ArrowRight, Trophy, Zap } from 'lucide-react';
+import { soundEffects } from '../../utils/soundEffects';
 
 interface Props {
   session: Session;
@@ -11,6 +12,7 @@ interface Props {
   onStartPresentationTimer: () => Promise<void>;
   onPausePresentationTimer: () => Promise<void>;
   onResetPresentationTimer: () => Promise<void>;
+  onStartPitching?: () => Promise<void>;
   onNextTeam: () => Promise<void>;
   onRevealLeaderboard: () => Promise<void>;
   onSimulateDemoScores?: (presentingTeamId: string) => Promise<void>;
@@ -23,6 +25,7 @@ export const HostPresentation: React.FC<Props> = ({
   onStartPresentationTimer,
   onPausePresentationTimer,
   onResetPresentationTimer,
+  onStartPitching,
   onNextTeam,
   onRevealLeaderboard,
   onSimulateDemoScores
@@ -50,6 +53,15 @@ export const HostPresentation: React.FC<Props> = ({
   const totalEligibleCount = eligibleCaptains.length;
   const allSubmitted = totalEligibleCount > 0 && submissionCount >= totalEligibleCount;
 
+  // ── Sound: play once when all captains submit ─────────────────────────────
+  const allSubmittedSoundRef = useRef<string>('');
+  useEffect(() => {
+    if (allSubmitted && allSubmittedSoundRef.current !== currentPresentingGroupId) {
+      allSubmittedSoundRef.current = currentPresentingGroupId;
+      soundEffects.playAllScoresIn();
+    }
+  }, [allSubmitted, currentPresentingGroupId]);
+
   const handleSimulate = async () => {
     if (!onSimulateDemoScores || !currentPresentingGroupId) return;
     setSimulating(true);
@@ -66,8 +78,10 @@ export const HostPresentation: React.FC<Props> = ({
     setLoading(true);
     try {
       if (isLastTeam) {
+        soundEffects.playLeaderboardReveal();
         await onRevealLeaderboard();
       } else {
+        soundEffects.playNextTeam();
         await onNextTeam();
       }
     } catch (err) {
@@ -94,7 +108,7 @@ export const HostPresentation: React.FC<Props> = ({
           </div>
 
           <button
-            onClick={onNextTeam}
+            onClick={onStartPitching || onNextTeam}
             className="py-3.5 px-8 rounded-xl font-extrabold text-base bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-navy-950 shadow-xl shadow-cyan-500/25 transition-all flex items-center gap-3"
           >
             START PITCHING (TEAM 1)
@@ -197,6 +211,8 @@ export const HostPresentation: React.FC<Props> = ({
                 onReset={onResetPresentationTimer}
                 showControls={true}
                 size="projector"
+                stageKey="presentation"
+                presentationIndex={currentIndex}
               />
             </div>
           </GlassPanel>
