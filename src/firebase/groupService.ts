@@ -15,6 +15,11 @@ export async function createBalancedGroups(sessionId: string): Promise<Record<st
   const partsObj = partsSnap.val() as Record<string, Participant>;
   const participants = Object.values(partsObj);
 
+  console.log('[BMC GROUPING] Session:', sessionId, '| Participant count:', participants.length);
+  participants.forEach(p => {
+    console.log('[BMC GROUPING]  Participant:', p.name, '| UID:', p.uid, '| Dept:', p.department);
+  });
+
   const { groups, error } = calculateOptimalTeams(participants);
 
   if (error) {
@@ -24,21 +29,38 @@ export async function createBalancedGroups(sessionId: string): Promise<Record<st
   const updates: Record<string, any> = {};
   updates[`groups/${sessionId}`] = groups;
 
+  // Build a set of all UIDs assigned across all groups so we can validate
+  const assignedUids = new Set<string>();
+
   let assignedCount = 0;
   Object.values(groups).forEach(g => {
     const membersList = Array.isArray(g.members) ? g.members : Object.values(g.members);
     membersList.forEach(m => {
       if (m && m.uid) {
         updates[`participants/${sessionId}/${m.uid}/groupId`] = g.id;
+        assignedUids.add(m.uid);
         assignedCount++;
       }
     });
   });
 
+  // POST-ASSIGNMENT VALIDATION: Every participant MUST have a groupId.
+  // If any participant was missed by the grouping algorithm, abort before writing.
+  const unassigned = participants.filter(p => !assignedUids.has(p.uid));
+  if (unassigned.length > 0) {
+    const names = unassigned.map(p => `${p.name} (${p.uid})`).join(', ');
+    console.error('[BMC GROUPING] TEAM FORMATION FAILED — unassigned participants:', names);
+    throw new Error(
+      `TEAM FORMATION FAILED: ${unassigned.length} participant(s) not assigned to a team: ${names}`
+    );
+  }
+
   console.log('[BMC GROUPING]');
   console.log('  Session:', sessionId);
   console.log('  Number of participants:', participants.length);
   console.log('  Number assigned:', assignedCount);
+  console.log('  Groups created:', Object.keys(groups).length);
+  console.log('  All participants assigned:', assignedCount === participants.length ? 'YES ✓' : 'NO ✗');
 
   await update(ref(db), updates);
   await updateSessionUIState(sessionId, 'GROUPS_READY');
@@ -46,6 +68,7 @@ export async function createBalancedGroups(sessionId: string): Promise<Record<st
   console.log('[BMC GROUP] Successfully created balanced groups:', Object.keys(groups).length);
   return groups;
 }
+
 
 export async function selectCaptainForGroup(
   sessionId: string,

@@ -26,28 +26,42 @@ export async function joinSessionAsStudent(
     throw new Error('SESSION HAS ENDED');
   }
 
+  // Check if this participant already exists in THIS session (e.g. page refresh mid-session).
+  // If they already have a groupId assigned (teams already formed), preserve it.
+  // If they are joining a NEW session, they will have groupId=null by definition
+  // because the record doesn't exist yet.
+  const existingSnap = await get(ref(db, `participants/${sessionId}/${uid}`));
+  const existingData = existingSnap.exists() ? existingSnap.val() : null;
+
   const now = Date.now();
   const participant: Participant = {
     uid,
     name: name.trim(),
     department,
     status: 'active',
-    joinedAt: now,
+    joinedAt: existingData?.joinedAt ?? now,
     lastSeenAt: now,
-    groupId: null,
-    isCaptain: false
+    // CRITICAL: If a record already exists in THIS session, preserve its groupId.
+    // If this is a brand-new join (no existing record), groupId must be null.
+    groupId: existingData?.groupId ?? null,
+    isCaptain: existingData?.isCaptain ?? false
   };
 
   const participantPath = `participants/${sessionId}/${uid}`;
 
-  console.log('[BMC STUDENT JOIN]');
-  console.log('  Session ID:', sessionId);
-  console.log('  UID:', uid);
-  console.log('  Name:', name);
-  console.log('[BMC STUDENT PARTICIPANT] Path:', participantPath);
+  console.log('[BMC SESSION] CURRENT SESSION:', sessionId);
+  console.log('[BMC STUDENT] CURRENT UID:', uid);
+  console.log('[BMC STUDENT] PARTICIPANT PATH:', participantPath);
+  console.log('[BMC STUDENT] Name:', name.trim(), '| Department:', department);
+  console.log('[BMC STUDENT] groupId:', participant.groupId ?? 'null', '| isCaptain:', participant.isCaptain);
+  if (existingData) {
+    console.log('[BMC STUDENT] Rejoining SAME session — preserving existing state');
+  } else {
+    console.log('[BMC STUDENT] First join for this session — starting fresh with groupId=null');
+  }
 
   await set(ref(db, participantPath), participant);
-  console.log('[BMC PARTICIPANT] Joined session successfully:', sessionId, name, department);
+  console.log('[BMC PARTICIPANT] Joined session successfully:', sessionId, name.trim(), department);
 
   return participant;
 }

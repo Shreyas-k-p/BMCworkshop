@@ -5,6 +5,7 @@ import { useParticipants } from './hooks/useParticipants';
 import { useGroups } from './hooks/useGroups';
 import { useScores } from './hooks/useScores';
 import { useConnectionState } from './hooks/useConnectionState';
+import { useStudentParticipant } from './hooks/useStudentParticipant';
 
 import { createSession, findSessionByCode, updateSessionUIState, endSession } from './firebase/sessionService';
 import { joinSessionAsStudent, addDemoStudents } from './firebase/participantService';
@@ -30,14 +31,11 @@ import { StudentScoringView } from './components/student/StudentScoringView';
 import { StudentLeaderboard } from './components/student/StudentLeaderboard';
 import { FloatingMessagesOverlay } from './components/common/FloatingMessagesOverlay';
 
-import { Participant, Department } from './types';
+import { Department } from './types';
 import { WifiOff } from 'lucide-react';
 
 const HOST_SESSION_KEY = 'bmc_live_host_session_id';
 
-function getStudentSessionStorageKey(sessionId: string): string {
-  return `bmc_student_identity_${sessionId}`;
-}
 
 export function App() {
   const authState = useAuth();
@@ -53,8 +51,11 @@ export function App() {
     return localStorage.getItem(HOST_SESSION_KEY);
   });
 
+  // studentSessionId is resolved from the URL route code via findSessionByCode.
+  // It is NEVER restored from localStorage — the URL is always the source of truth.
   const [studentSessionId, setStudentSessionId] = useState<string | null>(null);
-  const [studentParticipant, setStudentParticipant] = useState<Participant | null>(null);
+
+  const uid = authState.uid;
 
   const activeSessionId = isStudentRoute ? studentSessionId : hostSessionId;
 
@@ -63,7 +64,17 @@ export function App() {
   const { groups } = useGroups(activeSessionId);
   const { scores } = useScores(activeSessionId);
 
-  // 1. Resolve Session ID for student from route code and restore session-scoped participant state
+  // CORE FIX: Subscribe DIRECTLY to participants/{studentSessionId}/{uid}.
+  // This is session-scoped by design. When studentSessionId changes (new session),
+  // the hook unsubscribes from the old session listener and subscribes to the new one.
+  // State is reset to null between sessions — no stale groupId can leak across sessions.
+  const { participant: studentParticipant } = useStudentParticipant(
+    isStudentRoute ? studentSessionId : null,
+    uid
+  );
+
+  // Resolve the session ID for the student from the URL route code.
+  // The URL (routeCode) is ALWAYS the source of truth — not localStorage.
   useEffect(() => {
     if (isStudentRoute && routeCode) {
       findSessionByCode(routeCode).then((s) => {
@@ -71,46 +82,18 @@ export function App() {
           const newSessionId = s.id;
           setStudentSessionId((prev) => {
             if (prev !== newSessionId) {
-              // Session changed! Reset student participant state for the new session
-              const scopedKey = getStudentSessionStorageKey(newSessionId);
-              const saved = localStorage.getItem(scopedKey);
-              if (saved) {
-                try {
-                  const parsed = JSON.parse(saved);
-                  setStudentParticipant(parsed);
-                } catch {
-                  setStudentParticipant(null);
-                }
-              } else {
-                setStudentParticipant(null);
-              }
+              console.log('[BMC SESSION] Resolved session from URL code:', routeCode, '→', newSessionId);
               return newSessionId;
             }
             return prev;
           });
+        } else if (s && !s.hasActiveSession) {
+          console.log('[BMC SESSION] Session found but not active (ended):', s.id);
+          setStudentSessionId(s.id); // Still set it so the "session ended" UI shows
         }
       });
     }
   }, [isStudentRoute, routeCode]);
-
-  // 2. Realtime listener to sync participant record specifically under CURRENT studentSessionId
-  useEffect(() => {
-    if (user && studentSessionId && participants.length > 0) {
-      const updated = participants.find((p) => p.uid === user.uid);
-      if (updated) {
-        setStudentParticipant((prev) => {
-          if (prev?.groupId !== updated.groupId) {
-            console.log('[BMC STUDENT GROUP]');
-            console.log('  Before:', prev?.groupId || 'null');
-            console.log('  After:', updated.groupId || 'null');
-          }
-          const scopedKey = getStudentSessionStorageKey(studentSessionId);
-          localStorage.setItem(scopedKey, JSON.stringify(updated));
-          return updated;
-        });
-      }
-    }
-  }, [user, studentSessionId, participants]);
 
   const handleHostCreateSession = async () => {
     if (!user) throw new Error('Host authentication is not ready');
@@ -145,12 +128,11 @@ export function App() {
       throw new Error('SESSION HAS ENDED');
     }
 
-    const participant = await joinSessionAsStudent(foundSession.id, user.uid, name, department);
+    // Write the participant record to Firebase. The useStudentParticipant hook
+    // will automatically pick up the new record via its Firebase listener.
+    await joinSessionAsStudent(foundSession.id, user.uid, name, department);
+    // Set the session ID — this triggers the hook to subscribe to this session's participant.
     setStudentSessionId(foundSession.id);
-    setStudentParticipant(participant);
-
-    const scopedKey = getStudentSessionStorageKey(foundSession.id);
-    localStorage.setItem(scopedKey, JSON.stringify(participant));
   };
 
   const renderReconnectBanner = () => {
@@ -184,10 +166,6 @@ export function App() {
           <p className="text-slate-400 text-sm">Thank you for participating in BMC LIVE!</p>
           <button
             onClick={() => {
-              if (studentSessionId) {
-                localStorage.removeItem(getStudentSessionStorageKey(studentSessionId));
-              }
-              setStudentParticipant(null);
               setStudentSessionId(null);
               window.location.href = '/';
             }}
