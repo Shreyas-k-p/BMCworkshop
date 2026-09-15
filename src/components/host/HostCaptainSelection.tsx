@@ -60,7 +60,7 @@ export const HostCaptainSelection: React.FC<Props> = ({
             SELECT TEAM CAPTAINS
           </h2>
           <p className="text-slate-400 text-sm mt-1">
-            Pick exactly ONE captain per team to represent and score peer presentations.
+            Pick exactly ONE captain per team to submit the business idea and score peer presentations.
           </p>
         </div>
 
@@ -73,7 +73,7 @@ export const HostCaptainSelection: React.FC<Props> = ({
             <div className="w-5 h-5 border-2 border-navy-950 border-t-transparent rounded-full animate-spin" />
           ) : (
             <>
-              ASSIGN PRODUCTS
+              START BUSINESS IDEA CHALLENGE
               <ArrowRight className="w-5 h-5" />
             </>
           )}

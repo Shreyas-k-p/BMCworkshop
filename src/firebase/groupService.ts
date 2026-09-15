@@ -2,8 +2,8 @@ import { ref, get, update } from 'firebase/database';
 import { db } from './config';
 import { Group, Participant } from '../types';
 import { calculateOptimalTeams } from '../utils/grouping';
-import { getRandomProducts } from '../utils/products';
 import { updateSessionUIState } from './sessionService';
+import { resetTimer, startTimer } from './timerService';
 
 export async function createBalancedGroups(sessionId: string): Promise<Record<string, Group>> {
   const partsSnap = await get(ref(db, `participants/${sessionId}`));
@@ -98,27 +98,17 @@ export async function selectCaptainForGroup(
   console.log('[BMC CAPTAIN] Selected captain:', captainName, 'for group:', groupId);
 }
 
-export async function assignProductsToGroups(sessionId: string): Promise<void> {
+export async function startBusinessIdeaChallenge(sessionId: string): Promise<void> {
   const groupsSnap = await get(ref(db, `groups/${sessionId}`));
   if (!groupsSnap.exists()) {
     throw new Error('No groups found for session');
   }
 
-  const groups = groupsSnap.val() as Record<string, Group>;
-  const groupList = Object.values(groups);
-  const products = getRandomProducts(groupList.length);
-
-  const updates: Record<string, any> = {};
-
-  groupList.forEach((group, idx) => {
-    const product = products[idx];
-    updates[`groups/${sessionId}/${group.id}/productId`] = product.id;
-    updates[`groups/${sessionId}/${group.id}/product`] = product;
-  });
-
-  await update(ref(db), updates);
-  await updateSessionUIState(sessionId, 'PRODUCT_REVEAL');
-  console.log('[BMC PRODUCT] Products assigned to groups successfully');
+  // Reset and start the 5-minute business idea timer (300 seconds)
+  await resetTimer(sessionId, 'businessIdea', 300);
+  await startTimer(sessionId, 'businessIdea');
+  await updateSessionUIState(sessionId, 'BUSINESS_IDEA');
+  console.log('[BMC BUSINESS IDEA] Started 5-minute business idea challenge');
 }
 
 export async function generateAndSavePresentationOrder(sessionId: string): Promise<string[]> {

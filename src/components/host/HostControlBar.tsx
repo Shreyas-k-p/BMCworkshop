@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Session, UIState } from '../../types';
-import { LogOut, RotateCcw, ChevronRight, Users, Radio } from 'lucide-react';
+import { LogOut, RotateCcw, ChevronRight, Users, Radio, Volume2, VolumeX } from 'lucide-react';
+import { useSoundToggle } from '../../hooks/useSoundToggle';
 
 interface Props {
   session: Session;
@@ -17,10 +18,10 @@ const STAGE_META: Record<UIState, { title: string; current: string; next: string
   JOINING: { title: '1. Student Join & Lobby', current: 'Students scanning QR and joining', next: 'Balanced Team Formation' },
   GROUPING: { title: '2. Team Formation', current: 'Creating balanced teams', next: 'Captain Selection' },
   GROUPS_READY: { title: '2. Teams Formed', current: 'Teams ready', next: 'Select 1 Captain per Team' },
-  CAPTAIN_SELECTION: { title: '3. Captain Selection', current: 'Selecting team captains', next: 'Random Product Assignment' },
-  PRODUCT_REVEAL: { title: '4. Product Reveal', current: 'Products assigned to teams', next: '15-Min Preparation Timer' },
-  PREPARATION: { title: '5. BMC Preparation', current: '15-Minute BMC Preparation', next: '10-Min Product Study' },
-  STUDY_TIME: { title: '6. Product Study', current: '10-Minute Product Study', next: 'Presentation Order' },
+  CAPTAIN_SELECTION: { title: '3. Captain Selection', current: 'Selecting team captains', next: 'Business Idea Challenge' },
+  BUSINESS_IDEA: { title: '4. Business Idea', current: '5-Minute Business Idea Challenge', next: '15-Min BMC Preparation' },
+  PREPARATION: { title: '5. BMC Preparation', current: '15-Minute BMC Preparation', next: '5-Min Study & Prepare' },
+  STUDY_TIME: { title: '6. Study & Prepare', current: '5-Minute Study & Pitch Preparation', next: 'Presentation Order' },
   PRESENTATION_ORDER: { title: '7. Pitch Order', current: 'Presentation order randomized', next: 'Start Team Presentations' },
   PRESENTATION: { title: '8. Team Pitching', current: 'Team presentation in progress', next: 'Peer Captain Scoring' },
   SCORING: { title: '9. Peer Scoring', current: 'Other captains submitting scores', next: 'Next Team Pitch or Leaderboard' },
@@ -39,6 +40,7 @@ export const HostControlBar: React.FC<Props> = ({
 }) => {
   const [showConfirmEnd, setShowConfirmEnd] = useState(false);
   const [showConfirmRestart, setShowConfirmRestart] = useState(false);
+  const [soundEnabled, toggleSound] = useSoundToggle();
 
   const meta = STAGE_META[session.uiState] || {
     title: session.uiState,
@@ -80,6 +82,27 @@ export const HostControlBar: React.FC<Props> = ({
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={toggleSound}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition-all ${
+              soundEnabled
+                ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20'
+                : 'bg-slate-800/80 border-slate-700/80 text-slate-400 hover:bg-slate-700'
+            }`}
+            title={soundEnabled ? 'Mute Sound Effects' : 'Enable Sound Effects'}
+          >
+            {soundEnabled ? (
+              <>
+                <Volume2 className="w-4 h-4 text-cyan-400" />
+                <span className="hidden sm:inline">Sound ON</span>
+              </>
+            ) : (
+              <>
+                <VolumeX className="w-4 h-4 text-slate-400" />
+                <span className="hidden sm:inline">Sound OFF</span>
+              </>
+            )}
+          </button>
           {onNextStage && nextButtonLabel && (
             <button
               onClick={onNextStage}

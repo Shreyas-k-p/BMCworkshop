@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Participant, Group } from '../../types';
 import { GlassPanel } from '../common/GlassPanel';
 import { DepartmentBadge } from '../common/DepartmentBadge';
-import { Crown, Users, Sparkles, CheckCircle2, Radar, Package } from 'lucide-react';
+import { Crown, Users, Sparkles, CheckCircle2, Radar, Lightbulb } from 'lucide-react';
 import { useStudentGroup } from '../../hooks/useStudentGroup';
 import { soundEffects } from '../../utils/soundEffects';
 
@@ -112,7 +112,7 @@ export const StudentTeamsView: React.FC<Props> = ({
     );
   }
 
-  const product = myGroup.product;
+  const businessIdea = myGroup.businessIdea;
 
   return (
     <div className="min-h-screen bg-navy-950 p-4 pb-16 max-w-md mx-auto flex flex-col justify-center">
@@ -261,17 +261,17 @@ export const StudentTeamsView: React.FC<Props> = ({
                 </div>
               </div>
 
-              {/* Assigned Product Banner */}
-              {product && (
+              {/* Team Business Idea Banner if available */}
+              {businessIdea && (
                 <div className="p-4 rounded-xl bg-gradient-to-r from-cyan-950 to-navy-900 border border-cyan-500/50 text-center space-y-1 relative overflow-hidden">
                   <div className="flex items-center justify-center gap-1.5 text-cyan-400 text-[10px] font-black uppercase tracking-wider">
-                    <Package className="w-3.5 h-3.5" /> ASSIGNED PRODUCT
+                    <Lightbulb className="w-3.5 h-3.5 text-amber-400" /> BUSINESS IDEA
                   </div>
                   <div className="text-xl font-black text-white uppercase tracking-tight">
-                    {product.name}
+                    🚀 {businessIdea.businessName}
                   </div>
-                  <div className="text-xs font-bold text-cyan-300 uppercase">
-                    {product.company}
+                  <div className="text-xs font-medium text-cyan-300 italic leading-relaxed">
+                    "{businessIdea.description}"
                   </div>
                 </div>
               )}

@@ -31,7 +31,15 @@
         ".read": "auth != null",
         "$groupId": {
           ".read": "auth != null && (root.child('sessions').child($sessionId).child('hostUid').val() === auth.uid || root.child('participants').child($sessionId).child(auth.uid).child('groupId').val() === $groupId)",
-          ".write": "auth != null && root.child('sessions').child($sessionId).child('hostUid').val() === auth.uid"
+          ".write": "auth != null && (root.child('sessions').child($sessionId).child('hostUid').val() === auth.uid || (root.child('participants').child($sessionId).child(auth.uid).child('groupId').val() === $groupId && root.child('participants').child($sessionId).child(auth.uid).child('isCaptain').val() === true && (!data.child('businessIdea').child('locked').val() === true || root.child('sessions').child($sessionId).child('hostUid').val() === auth.uid)))"
+        }
+      }
+    },
+    "businessIdeas": {
+      "$sessionId": {
+        ".read": "auth != null",
+        "$groupId": {
+          ".write": "auth != null && (root.child('sessions').child($sessionId).child('hostUid').val() === auth.uid || (root.child('participants').child($sessionId).child(auth.uid).child('groupId').val() === $groupId && root.child('participants').child($sessionId).child(auth.uid).child('isCaptain').val() === true && (!data.child('locked').val() === true || root.child('sessions').child($sessionId).child('hostUid').val() === auth.uid)))"
         }
       }
     },

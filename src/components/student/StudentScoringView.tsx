@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Group, Participant, Session, ScoreSubmission } from '../../types';
 import { GlassPanel } from '../common/GlassPanel';
+import { TimerDisplay } from '../common/TimerDisplay';
 import { Crown, CheckCircle2, Clock, Send, ShieldAlert, ListOrdered } from 'lucide-react';
 import { isEligibleToScore } from '../../utils/scoring';
 
@@ -115,9 +116,9 @@ export const StudentScoringView: React.FC<Props> = ({
                           </span>
                         )}
                       </div>
-                      {g.product && (
-                        <div className="text-[10px] text-slate-400">
-                          {g.product.name}
+                      {g.businessIdea && (
+                        <div className="text-[10px] text-cyan-400 font-bold">
+                          🚀 {g.businessIdea.businessName}
                         </div>
                       )}
                     </div>
@@ -171,16 +172,29 @@ export const StudentScoringView: React.FC<Props> = ({
             </p>
           )}
 
-          {presentingGroup.product && (
-            <div className="p-3 rounded-xl bg-navy-950 border border-slate-800 space-y-0.5">
-              <div className="text-lg font-black text-cyan-400 uppercase">
-                {presentingGroup.product.name}
+          {presentingGroup.businessIdea && (
+            <div className="p-3.5 rounded-xl bg-navy-950 border border-cyan-500/40 text-left space-y-1">
+              <span className="text-[9px] uppercase font-bold text-cyan-400 tracking-wider block">
+                BUSINESS NAME & PITCH CONCEPT
+              </span>
+              <div className="text-base font-black text-white uppercase">
+                🚀 {presentingGroup.businessIdea.businessName}
               </div>
-              <div className="text-xs font-bold text-slate-300 uppercase">
-                {presentingGroup.product.company}
+              <div className="text-xs text-slate-300 italic leading-relaxed pt-1 border-t border-slate-800">
+                "{presentingGroup.businessIdea.description}"
               </div>
             </div>
           )}
+
+          <div className="pt-2">
+            <TimerDisplay
+              timerState={session.presentation}
+              label="3-MINUTE PITCH TIMER"
+              size="normal"
+              stageKey="presentation"
+              presentationIndex={currentIndex}
+            />
+          </div>
         </GlassPanel>
       )}
 

@@ -9,8 +9,9 @@ import { useStudentParticipant } from './hooks/useStudentParticipant';
 
 import { createSession, findSessionByCode, updateSessionUIState, endSession } from './firebase/sessionService';
 import { joinSessionAsStudent, addDemoStudents } from './firebase/participantService';
-import { createBalancedGroups, selectCaptainForGroup, assignProductsToGroups, generateAndSavePresentationOrder } from './firebase/groupService';
+import { createBalancedGroups, selectCaptainForGroup, startBusinessIdeaChallenge, generateAndSavePresentationOrder } from './firebase/groupService';
 import { submitScore, simulateDemoCaptainScores, calculateAndRevealLeaderboard } from './firebase/scoreService';
+import { submitBusinessIdea, simulateDemoBusinessIdeas } from './firebase/businessService';
 import { startTimer, pauseTimer, resetTimer } from './firebase/timerService';
 
 import { HostHome } from './components/host/HostHome';
@@ -18,7 +19,7 @@ import { HostControlBar } from './components/host/HostControlBar';
 import { HostLobby } from './components/host/HostLobby';
 import { HostTeamFormation } from './components/host/HostTeamFormation';
 import { HostCaptainSelection } from './components/host/HostCaptainSelection';
-import { HostProductReveal } from './components/host/HostProductReveal';
+import { HostBusinessIdeaStage } from './components/host/HostBusinessIdeaStage';
 import { HostTimerStage } from './components/host/HostTimerStage';
 import { HostPresentation } from './components/host/HostPresentation';
 import { HostLeaderboard } from './components/host/HostLeaderboard';
@@ -26,10 +27,12 @@ import { HostLeaderboard } from './components/host/HostLeaderboard';
 import { StudentJoin } from './components/student/StudentJoin';
 import { StudentLobby } from './components/student/StudentLobby';
 import { StudentTeamsView } from './components/student/StudentTeamsView';
+import { StudentBusinessIdeaView } from './components/student/StudentBusinessIdeaView';
 import { StudentTimerView } from './components/student/StudentTimerView';
 import { StudentScoringView } from './components/student/StudentScoringView';
 import { StudentLeaderboard } from './components/student/StudentLeaderboard';
 import { FloatingMessagesOverlay } from './components/common/FloatingMessagesOverlay';
+import { soundEffects } from './utils/soundEffects';
 
 import { Department } from './types';
 import { WifiOff } from 'lucide-react';
@@ -105,7 +108,9 @@ export function App() {
 
   const handleHostCreateSession = async () => {
     if (!user) throw new Error('Host authentication is not ready');
+    soundEffects.unlock();
     const newSession = await createSession();
+    soundEffects.playSuccess();
     setHostSessionId(newSession.id);
     localStorage.setItem(HOST_SESSION_KEY, newSession.id);
   };
@@ -244,8 +249,19 @@ export function App() {
 
         case 'GROUPS_READY':
         case 'CAPTAIN_SELECTION':
-        case 'PRODUCT_REVEAL':
           return <StudentTeamsView currentParticipant={studentParticipant} sessionId={session.id} />;
+
+        case 'BUSINESS_IDEA':
+          return (
+            <StudentBusinessIdeaView
+              session={session}
+              myGroup={groups[studentParticipant.groupId || '']}
+              currentParticipant={studentParticipant}
+              onSubmitIdea={(name, desc) =>
+                submitBusinessIdea(session.id, studentParticipant.groupId || '', studentParticipant.uid, name, desc)
+              }
+            />
+          );
 
         case 'PREPARATION':
         case 'STUDY_TIME':
@@ -328,15 +344,24 @@ export function App() {
           <HostCaptainSelection
             groups={groups}
             onSelectCaptain={(gId, cUid, cName) => selectCaptainForGroup(session.id, gId, cUid, cName)}
-            onConfirmAllCaptains={() => assignProductsToGroups(session.id)}
+            onConfirmAllCaptains={() => startBusinessIdeaChallenge(session.id)}
           />
         );
 
-      case 'PRODUCT_REVEAL':
+      case 'BUSINESS_IDEA':
         return (
-          <HostProductReveal
+          <HostBusinessIdeaStage
+            session={session}
             groups={groups}
-            onStartPreparation={() => updateSessionUIState(session.id, 'PREPARATION')}
+            onStartTimer={() => startTimer(session.id, 'businessIdea')}
+            onPauseTimer={() => pauseTimer(session.id, 'businessIdea')}
+            onResetTimer={() => resetTimer(session.id, 'businessIdea', 300)}
+            onStartBmcPreparation={async () => {
+              await resetTimer(session.id, 'preparation', 900);
+              await startTimer(session.id, 'preparation');
+              await updateSessionUIState(session.id, 'PREPARATION');
+            }}
+            onSimulateDemoIdeas={() => simulateDemoBusinessIdeas(session.id)}
           />
         );
 
@@ -348,7 +373,11 @@ export function App() {
             onStartTimer={() => startTimer(session.id, 'preparation')}
             onPauseTimer={() => pauseTimer(session.id, 'preparation')}
             onResetTimer={() => resetTimer(session.id, 'preparation', 900)}
-            onProceedToNext={() => updateSessionUIState(session.id, 'STUDY_TIME')}
+            onProceedToNext={async () => {
+              await resetTimer(session.id, 'study', 300);
+              await startTimer(session.id, 'study');
+              await updateSessionUIState(session.id, 'STUDY_TIME');
+            }}
           />
         );
 
@@ -359,7 +388,7 @@ export function App() {
             stageType="STUDY_TIME"
             onStartTimer={() => startTimer(session.id, 'study')}
             onPauseTimer={() => pauseTimer(session.id, 'study')}
-            onResetTimer={() => resetTimer(session.id, 'study', 600)}
+            onResetTimer={() => resetTimer(session.id, 'study', 300)}
             onProceedToNext={() => generateAndSavePresentationOrder(session.id).then(() => {})}
           />
         );

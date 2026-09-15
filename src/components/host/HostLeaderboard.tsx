@@ -103,9 +103,9 @@ export const HostLeaderboard: React.FC<Props> = ({
                   {top2.finalScore?.toFixed(1) || '0.0'} <span className="text-xs text-slate-400">/ 10</span>
                 </div>
               </div>
-              {top2.product && (
+              {top2.businessIdea && (
                 <div className="p-2 rounded-xl bg-navy-950 text-xs font-bold text-cyan-400">
-                  {top2.product.name}
+                  🚀 {top2.businessIdea.businessName}
                 </div>
               )}
             </GlassPanel>
@@ -133,13 +133,13 @@ export const HostLeaderboard: React.FC<Props> = ({
                 </div>
               </div>
 
-              {top1.product && (
-                <div className="p-3 rounded-2xl bg-navy-950 border border-amber-500/30">
+              {top1.businessIdea && (
+                <div className="p-3 rounded-2xl bg-navy-950 border border-amber-500/30 space-y-1">
                   <span className="text-[10px] font-extrabold text-amber-400 uppercase tracking-widest block">
-                    WINNING BUSINESS MODEL CASE
+                    WINNING BUSINESS IDEA
                   </span>
-                  <div className="text-lg font-black text-white uppercase">{top1.product.name}</div>
-                  <div className="text-xs font-bold text-cyan-400 uppercase">{top1.product.company}</div>
+                  <div className="text-lg font-black text-white uppercase">🚀 {top1.businessIdea.businessName}</div>
+                  <div className="text-xs font-medium text-slate-300 italic leading-relaxed">"{top1.businessIdea.description}"</div>
                 </div>
               )}
             </GlassPanel>
@@ -166,9 +166,9 @@ export const HostLeaderboard: React.FC<Props> = ({
                   {top3.finalScore?.toFixed(1) || '0.0'} <span className="text-xs text-slate-400">/ 10</span>
                 </div>
               </div>
-              {top3.product && (
+              {top3.businessIdea && (
                 <div className="p-2 rounded-xl bg-navy-950 text-xs font-bold text-cyan-400">
-                  {top3.product.name}
+                  🚀 {top3.businessIdea.businessName}
                 </div>
               )}
             </GlassPanel>
@@ -207,9 +207,9 @@ export const HostLeaderboard: React.FC<Props> = ({
                       </span>
                     )}
                   </div>
-                  {g.product && (
+                  {g.businessIdea && (
                     <span className="text-xs text-slate-400 font-medium">
-                      Product: <strong className="text-cyan-400">{g.product.name}</strong> ({g.product.company})
+                      Idea: <strong className="text-cyan-400">🚀 {g.businessIdea.businessName}</strong>
                     </span>
                   )}
                 </div>

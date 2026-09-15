@@ -3,7 +3,7 @@ import { db } from './config';
 import { TimerState } from '../types';
 import { calculateRemainingSeconds } from '../utils/timers';
 
-type TimerType = 'preparation' | 'study' | 'presentation';
+type TimerType = 'businessIdea' | 'preparation' | 'study' | 'presentation';
 
 export async function startTimer(sessionId: string, timerType: TimerType): Promise<void> {
   const path = `sessions/${sessionId}/${timerType}`;

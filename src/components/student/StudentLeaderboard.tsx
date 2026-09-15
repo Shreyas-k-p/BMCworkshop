@@ -81,9 +81,9 @@ export const StudentLeaderboard: React.FC<Props> = ({ groups, currentParticipant
                 </div>
               </div>
 
-              {g.product && (
+              {g.businessIdea && (
                 <div className="p-2 rounded-lg bg-navy-950 text-center text-xs font-bold text-slate-300">
-                  Case: <span className="text-cyan-400">{g.product.name}</span> ({g.product.company})
+                  Business: <span className="text-cyan-400 font-extrabold">🚀 {g.businessIdea.businessName}</span>
                 </div>
               )}
 

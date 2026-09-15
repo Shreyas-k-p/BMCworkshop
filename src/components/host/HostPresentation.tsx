@@ -140,13 +140,13 @@ export const HostPresentation: React.FC<Props> = ({
                   )}
                 </div>
 
-                {group.product && (
-                  <div className="p-3 rounded-xl bg-navy-950 border border-slate-800 text-center">
-                    <span className="text-xs font-extrabold text-cyan-400 uppercase block">
-                      {group.product.name}
+                {group.businessIdea && (
+                  <div className="p-3 rounded-xl bg-navy-950 border border-slate-800 text-center space-y-0.5">
+                    <span className="text-xs font-black text-cyan-400 uppercase block tracking-wider">
+                      🚀 {group.businessIdea.businessName}
                     </span>
-                    <span className="text-[10px] text-slate-400 uppercase font-bold">
-                      {group.product.company}
+                    <span className="text-[11px] text-slate-300 line-clamp-2 italic">
+                      "{group.businessIdea.description}"
                     </span>
                   </div>
                 )}
@@ -188,16 +188,16 @@ export const HostPresentation: React.FC<Props> = ({
               )}
             </div>
 
-            {currentGroup?.product && (
-              <div className="p-4 rounded-2xl bg-navy-950 border border-slate-800 inline-block max-w-sm w-full mx-auto space-y-0.5">
-                <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
-                  CASE PRODUCT
+            {currentGroup?.businessIdea && (
+              <div className="p-4 rounded-2xl bg-navy-950 border border-slate-800 inline-block max-w-md w-full mx-auto space-y-1 text-left">
+                <span className="text-[10px] uppercase font-bold text-cyan-400 tracking-wider block">
+                  BUSINESS NAME
                 </span>
-                <div className="text-2xl font-black text-cyan-400 tracking-wide">
-                  {currentGroup.product.name}
+                <div className="text-2xl font-black text-white tracking-wide">
+                  🚀 {currentGroup.businessIdea.businessName}
                 </div>
-                <div className="text-sm font-extrabold text-slate-300 uppercase">
-                  {currentGroup.product.company}
+                <div className="text-xs font-medium text-slate-300 italic pt-1 border-t border-slate-800/80 leading-relaxed">
+                  "{currentGroup.businessIdea.description}"
                 </div>
               </div>
             )}
@@ -223,9 +223,9 @@ export const HostPresentation: React.FC<Props> = ({
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">
               <div className="space-y-0.5">
                 <h3 className="text-xl font-extrabold text-white flex items-center gap-2">
-                  PEER SCORING
+                  {currentGroup ? `${currentGroup.groupName} — SCORING` : 'PEER SCORING'}
                 </h3>
-                <p className="text-xs text-slate-400">Only other team captains score</p>
+                <p className="text-xs text-slate-400">Only captains from other teams evaluate</p>
               </div>
 
               <div className={`px-3 py-1.5 rounded-xl font-black text-xs uppercase tracking-wider ${
@@ -233,55 +233,76 @@ export const HostPresentation: React.FC<Props> = ({
                   ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
                   : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
               }`}>
-                {allSubmitted ? '✓ ALL SUBMITTED' : `${submissionCount} / ${totalEligibleCount} SUBMITTED`}
+                {allSubmitted ? '✓ ALL CAPTAINS SUBMITTED' : `${submissionCount} / ${totalEligibleCount} SUBMITTED`}
               </div>
             </div>
 
-            <div className="space-y-3">
-              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                CAPTAIN SUBMISSION STATUS (SCORES HIDDEN):
+            <div className="space-y-2.5">
+              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+                CAPTAIN SUBMISSION STATUS (PRIVATE):
               </span>
 
-              {eligibleCaptains.length === 0 ? (
-                <p className="text-slate-500 text-sm">No eligible captain evaluators.</p>
-              ) : (
-                eligibleCaptains.map((cg) => {
-                  const hasSubmitted = Boolean(cg.captainId && submittedCaptainUids.has(cg.captainId));
+              {Object.values(groups).map((g) => {
+                const isPresenting = g.id === currentPresentingGroupId;
+                const hasSubmitted = Boolean(g.captainId && submittedCaptainUids.has(g.captainId));
 
+                if (isPresenting) {
                   return (
                     <div
-                      key={cg.id}
-                      className={`p-3.5 rounded-xl border flex items-center justify-between transition-all ${
-                        hasSubmitted
-                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                          : 'bg-navy-950/60 border-slate-800 text-slate-400'
-                      }`}
+                      key={g.id}
+                      className="p-3.5 rounded-xl border border-slate-800/80 bg-slate-900/40 text-slate-400 flex items-center justify-between"
                     >
                       <div className="flex items-center gap-3">
-                        <Crown className={`w-4 h-4 fill-current ${hasSubmitted ? 'text-emerald-400' : 'text-slate-500'}`} />
+                        <Crown className="w-4 h-4 text-slate-500 fill-current" />
                         <div>
-                          <span className="font-bold text-white text-sm block">
-                            {cg.groupName}
+                          <span className="font-bold text-slate-300 text-sm block">
+                            {g.groupName}
                           </span>
-                          <span className="text-xs text-slate-400">
-                            {cg.captainName}
+                          <span className="text-xs text-slate-500">
+                            {g.captainName || 'Captain'}
                           </span>
                         </div>
                       </div>
-
-                      {hasSubmitted ? (
-                        <span className="flex items-center gap-1 font-bold text-xs text-emerald-400">
-                          <CheckCircle2 className="w-4 h-4" /> SUBMITTED
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1 font-semibold text-xs text-amber-400 animate-pulse">
-                          <Clock className="w-4 h-4" /> PENDING
-                        </span>
-                      )}
+                      <span className="px-2 py-0.5 rounded bg-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        SELF SCORE NOT ALLOWED
+                      </span>
                     </div>
                   );
-                })
-              )}
+                }
+
+                return (
+                  <div
+                    key={g.id}
+                    className={`p-3.5 rounded-xl border flex items-center justify-between transition-all ${
+                      hasSubmitted
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                        : 'bg-navy-950/60 border-slate-800 text-slate-400'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Crown className={`w-4 h-4 fill-current ${hasSubmitted ? 'text-emerald-400' : 'text-slate-500'}`} />
+                      <div>
+                        <span className="font-bold text-white text-sm block">
+                          {g.groupName}
+                        </span>
+                        <span className="text-xs text-slate-400">
+                          {g.captainName || 'Captain'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {hasSubmitted ? (
+                      <span className="flex items-center gap-1 font-black text-xs text-emerald-400">
+                        <CheckCircle2 className="w-4 h-4" /> ✓ SUBMITTED
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 font-semibold text-xs text-amber-400 animate-pulse">
+                        <Clock className="w-4 h-4" /> ⏳ PENDING
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             {session.isDemoMode && onSimulateDemoScores && (
@@ -304,8 +325,8 @@ export const HostPresentation: React.FC<Props> = ({
             <div className="pt-4 border-t border-slate-800 space-y-2">
               <button
                 onClick={handleAdvance}
-                disabled={loading}
-                className="w-full py-4 px-6 rounded-xl font-black text-base bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-navy-950 shadow-xl shadow-cyan-500/25 transition-all transform hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-3"
+                disabled={loading || (!allSubmitted && !session.isDemoMode)}
+                className="w-full py-4 px-6 rounded-xl font-black text-base bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-navy-950 shadow-xl shadow-cyan-500/25 transition-all transform hover:scale-[1.01] active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-3"
               >
                 {loading ? (
                   <div className="w-5 h-5 border-2 border-navy-950 border-t-transparent rounded-full animate-spin" />
@@ -316,11 +337,17 @@ export const HostPresentation: React.FC<Props> = ({
                   </>
                 ) : (
                   <>
-                    NEXT TEAM ({nextGroup?.groupName})
+                    NEXT TEAM ({nextGroup?.groupName || 'COMPLETE'})
                     <ArrowRight className="w-5 h-5" />
                   </>
                 )}
               </button>
+
+              {!allSubmitted && !session.isDemoMode && (
+                <p className="text-[11px] text-amber-400/80 text-center font-semibold">
+                  Waiting for all {totalEligibleCount} eligible captains to submit scores.
+                </p>
+              )}
             </div>
           </GlassPanel>
         </div>

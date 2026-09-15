@@ -97,8 +97,7 @@ export function calculateOptimalTeams(participants: Participant[]): GroupingResu
       groupName: `TEAM ${i}`,
       captainId: null,
       captainName: null,
-      productId: null,
-      product: null,
+      businessIdea: null,
       presentationOrder: null,
       finalScore: null,
       members: teamMembers

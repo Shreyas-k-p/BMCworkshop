@@ -8,7 +8,7 @@ export type UIState =
   | 'GROUPING'
   | 'GROUPS_READY'
   | 'CAPTAIN_SELECTION'
-  | 'PRODUCT_REVEAL'
+  | 'BUSINESS_IDEA'
   | 'PREPARATION'
   | 'STUDY_TIME'
   | 'PRESENTATION_ORDER'
@@ -37,11 +37,12 @@ export interface TimerState {
   totalPausedSeconds: number;
 }
 
-export interface Product {
-  id: string;
-  name: string;
-  company: string;
-  type: 'failed' | 'successful';
+export interface BusinessIdea {
+  businessName: string;
+  description: string;
+  submittedBy: string;
+  submittedAt: number;
+  locked: boolean;
 }
 
 export interface Group {
@@ -50,8 +51,7 @@ export interface Group {
   groupName: string;
   captainId: string | null;
   captainName: string | null;
-  productId: string | null;
-  product: Product | null;
+  businessIdea?: BusinessIdea | null;
   presentationOrder: number | null;
   finalScore: number | null;
   members: Record<string, Participant>;
@@ -79,6 +79,7 @@ export interface Session {
   presentationIndex: number;
   presentationOrder: string[];
   leaderboardRevealed: boolean;
+  businessIdea: TimerState;
   preparation: TimerState;
   study: TimerState;
   presentation: TimerState;

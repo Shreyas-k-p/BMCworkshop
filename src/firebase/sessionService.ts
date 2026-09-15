@@ -62,6 +62,13 @@ export async function createSession(): Promise<Session> {
       presentationIndex: 0,
       presentationOrder: [],
       leaderboardRevealed: false,
+      businessIdea: {
+        startedAt: null,
+        pausedAt: null,
+        durationSeconds: 300,
+        remainingSeconds: 300,
+        totalPausedSeconds: 0
+      },
       preparation: {
         startedAt: null,
         pausedAt: null,
@@ -72,8 +79,8 @@ export async function createSession(): Promise<Session> {
       study: {
         startedAt: null,
         pausedAt: null,
-        durationSeconds: 600,
-        remainingSeconds: 600,
+        durationSeconds: 300,
+        remainingSeconds: 300,
         totalPausedSeconds: 0
       },
       presentation: {

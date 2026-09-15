@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Department, DEPARTMENTS } from '../../types';
 import { GlassPanel } from '../common/GlassPanel';
 import { User, LogIn, AlertCircle, Sparkles } from 'lucide-react';
+import { soundEffects } from '../../utils/soundEffects';
 
 interface Props {
   initialCode?: string;
@@ -29,7 +30,9 @@ export const StudentJoin: React.FC<Props> = ({ initialCode = '', onJoin }) => {
     setLoading(true);
     setError(null);
     try {
+      soundEffects.unlock();
       await onJoin(code.trim().toUpperCase(), name.trim(), department);
+      soundEffects.playJoin();
     } catch (err: any) {
       console.error('[StudentJoin] Join error:', err);
       setError(err.message || 'Unable to join session. Please try again.');

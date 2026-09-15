@@ -88,10 +88,9 @@ class SoundEffects {
     this.chord([880, 1108.73], 0.35, 'sine', DEFAULT_VOLUME * 0.6, 0.1);
   }
 
-  /** Dramatic 4-note descending reveal — product assigned */
-  playProductReveal() {
-    const freqs = [1046.5, 880, 698.46, 523.25];
-    this.arpeggio(freqs, 0.18, 'triangle', DEFAULT_VOLUME * 0.7);
+  /** Bright 3-tone chime — business idea submitted */
+  playBusinessIdeaSubmitted() {
+    this.chord([587.33, 739.99, 880], 0.35, 'sine', DEFAULT_VOLUME * 0.7, 0.04);
   }
 
   /**
@@ -102,6 +101,11 @@ class SoundEffects {
     const freq = urgent ? 1200 : 880;
     const vol = urgent ? DEFAULT_VOLUME * 0.9 : DEFAULT_VOLUME * 0.6;
     this.tone(freq, 0.12, 'sine', vol);
+  }
+
+  /** Alias for playCountdownBeep */
+  playCountdown(urgent = false) {
+    this.playCountdownBeep(urgent);
   }
 
   /** Energetic rising sting — GO! */
